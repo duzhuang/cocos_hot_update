@@ -1,0 +1,8 @@
+{
+  "engine": "cocos-creator-js",
+  "packages": "packages",
+  "name": "cocos_hot_update",
+  "id": "84ecbad8-33c3-4282-a9bb-6f51feb38b21",
+  "version": "2.4.5",
+  "isNew": false
+}
