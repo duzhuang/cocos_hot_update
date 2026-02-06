@@ -40,7 +40,7 @@ async function onBuildFinish(options, callback) {
 
     // 处理 manifest 流程
     try {
-        await processManifest(projectPath);
+        await processManifest(projectPath,buildPath);
         logger.logNormal(`manifest 流程处理成功`);
         logger.logGreen(` --- HOTUPDATE-FINISH ---`);
     } catch (error) {
@@ -83,7 +83,7 @@ async function hotUpdateInjector(projectPath, targetPath) {
 /**
  * 处理 manifest 文件
  */
-async function processManifest(projectPath) {
+async function processManifest(projectPath,buildPath) {
     logger.logBlue(`manifest 处理器：开始处理 manifest 文件`);
 
     // 根据 配置的环境 加载 配置
@@ -95,7 +95,29 @@ async function processManifest(projectPath) {
         logger.logNormal(`manifest 生成成功`);
     } catch (error) {        
         throw new Error(`manifest 生成失败`);
+    } 
+
+
+    // 第二步：同步 manifest 到 APK         
+    try {
+        const sourcePath = path.join(projectPath, "remote-assets");
+        const targetPath = path.join(buildPath, "assets");
+        await manifestSynchronizer(projectPath, targetPath, sourcePath);
+        logger.logNormal(`manifest 同步到 APK 成功`);
+    } catch (error) {
+        throw new Error(`manifest 同步到 APK 失败`);
     }
+
+    // 第三步：部署 manifest 到本地目录
+    try {
+        const sourcePath = path.join(projectPath, "remote-assets");
+        const targetPath = config.get("deploy.targetPath");
+        await manifestDeployer(projectPath, targetPath, sourcePath);
+        logger.logNormal(`manifest 部署到本地目录成功`);
+    } catch (error) {
+        throw new Error(`manifest 部署到本地目录失败`);
+    }
+
 }
 
 /**
@@ -116,9 +138,7 @@ async function manifestGenerator(projectPath, config) {
         throw new Error();
     }
 
-    const command = `node ${scriptPath} ${remoteUrl} ${version} ${projectPath}`;
-
-    logger.logBlue(`command 执行的命令是：`,command);
+    const command = `node ${scriptPath} ${remoteUrl} ${version} ${projectPath}`;    
 
     return new Promise((resolve, reject) => {
         exec(command, (error, stdout, stderr) => {
@@ -129,10 +149,79 @@ async function manifestGenerator(projectPath, config) {
                 logger.logRed(`manifest_generator.js:\n${stderr}`);
             }
             if (error) {
-                reject(false);
-                return;
+                return reject(error);
             }
-            resolve(true);
+            return resolve(true);
+        });
+    });
+}
+
+/**
+ * 同步 manifest 文件到 APK 
+ * @param {*} projectPath 项目路径
+ * @param {*} targetPath 目标路径
+ * @param {*} sourcePath 源路径
+ */
+async function manifestSynchronizer(projectPath, targetPath, sourcePath) {
+
+    const scriptPath = path.join(projectPath, "packages/hot-update/scripts/manifest_synchronizer.js");    
+    const command = `node ${scriptPath} ${targetPath} ${sourcePath || ""}`;    
+
+    return new Promise((resolve, reject) => {
+        exec(command, (error, stdout, stderr) => {
+            if (stdout) {
+                logger.logNormal(`manifest_synchronizer.js:\n${stdout}`);
+            }
+            if (stderr) {
+                logger.logRed(`manifest_synchronizerjs:\n${stderr}`);                              
+            }
+            if (error) {
+                logger.logRed(`manifest_synchronizer.js:\n${error.message}`);
+                return reject(error);                               
+            }
+            return resolve(true);
+        });
+    });
+}
+
+/**
+ * 部署 manifest 文件
+ * @param {*} projectPath 项目路径
+ * @param {*} targetPath 目标路径
+ * @param {*} sourcePath 源路径
+ */
+async function manifestDeployer(projectPath, targetPath, sourcePath) {
+    try {
+        await deployLocal(projectPath, targetPath, sourcePath);
+    } catch (error) {
+        throw new Error(`manifest 部署到本地失败`);
+    }
+}
+
+/**
+ * 部署到本地
+ * @param {*} projectPath 项目路径
+ * @param {*} targetPath 目标路径
+ * @param {*} sourcePath 源路径
+ */
+async function deployLocal(projectPath, targetPath, sourcePath) {
+
+    const scriptPath = path.join(projectPath, "packages/hot-update/scripts/manifest_deployer_local.js");
+    const command = `node ${scriptPath} ${targetPath} ${sourcePath || ""}`;
+
+    return new Promise((resolve, reject) => {
+        exec(command, (error, stdout, stderr) => {
+            if (stdout) {
+                logger.logNormal(`manifest_deployer_local.js:\n${stdout}`);
+            }
+            if (stderr) {
+                logger.logRed(`manifest_deployer_local.js:\n${stderr}`);
+            }
+            if (error) {
+                logger.logRed(`manifest_deployer_local.js:\n${error.message}`);
+                return reject(error);
+            }
+            return resolve(true);
         });
     });
 }

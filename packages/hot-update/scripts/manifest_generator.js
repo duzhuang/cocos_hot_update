@@ -9,7 +9,6 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const logger = require('../utils/logger');
 
 /**
  * 版本生成器
@@ -79,7 +78,7 @@ class manifest_generator {
             version: this.m_version,
         };
 
-        project_manifest = await this.geerateMD5(project_manifest);
+        project_manifest = await this.generateMD5(project_manifest);
 
         // 写入文件
         const project_manifest_path = path.join(this.m_local_target_dir, "project_manifest.json");
@@ -93,15 +92,16 @@ class manifest_generator {
      * 生成 MD5
      * @param {object} project_manifest 资源清单
      */
-    async geerateMD5(project_manifest) {
+    async generateMD5(project_manifest) {
         // 需要生成两个文件夹下的md5
         const folders = ["assets", "src"];
-        const md5Object = {};        
-        for (const folder of folders) {
-            const sourceDir = this.getLocalSourcePath();
-            const folder_path = path.join(sourceDir, folder);
-            await this.calculateMD5(folder_path, md5Object);            
-        }
+        const md5Object = {};
+
+        const sourceDir = this.getLocalSourcePath();
+        await Promise.all(folders.map(async folder => {
+            const folderPath = path.join(sourceDir, folder);
+            await this.calculateMD5(folderPath, md5Object);
+        }));
 
         project_manifest["assets"] = md5Object;
 
@@ -113,26 +113,30 @@ class manifest_generator {
      * @param {string} folder_path 目录路径     
      * @param {object} md5Object 存储 md5 的对象
      */
-    async calculateMD5(folder_path, md5Object){    
-        const stat = await fs.promises.stat(folder_path);
-        if(stat.isDirectory()){
-            const files = await fs.promises.readdir(folder_path);
-            for (const file of files) {
-                const srcFile = path.join(folder_path, file);
-                await this.calculateMD5(srcFile, md5Object);
+    async calculateMD5(folder_path, md5Object){           
+        try {
+            const stat = await fs.promises.stat(folder_path);
+            if (stat.isDirectory()) {
+                const files = await fs.promises.readdir(folder_path);
+                for (const file of files) {
+                    const srcFile = path.join(folder_path, file);
+                    await this.calculateMD5(srcFile, md5Object);
+                }
+            } else if (stat.isFile()) {
+                const size = stat.size;
+                const md5Hash = crypto.createHash("md5");
+                md5Hash.update(await fs.promises.readFile(folder_path));
+                const md5 = md5Hash.digest("hex");
+                const sourceDir = this.getLocalSourcePath();
+                const relativePath = path.relative(sourceDir, folder_path);
+                md5Object[relativePath] = {
+                    "size": size,
+                    "md5": md5,
+                }
             }
-        }else if (stat.isFile()){
-            const size = stat.size;
-            const md5Hash = crypto.createHash("md5");
-            md5Hash.update(await fs.promises.readFile(folder_path));
-            const md5 = md5Hash.digest("hex");   
-            const sourceDir = this.getLocalSourcePath();         
-            const relativePath = path.relative(sourceDir, folder_path);
-            md5Object[relativePath] = {
-                "size": size,
-                "md5": md5,
-            }
-        }
+        } catch (error) {
+            console.error(`计算目录 ${folder_path} 的 MD5 失败: ${error.message}`);
+        }            
     }
 
 
@@ -200,19 +204,25 @@ class manifest_generator {
      * @param {string} destPath 目标文件路径
      */
     async copyDir(srcPath, destPath) {
-        const stat = await fs.promises.stat(srcPath);
-        // 如果是目录，递归复制
-        if (stat.isDirectory()) {
-            await this.checkDirExist(destPath);
-            const files = await fs.promises.readdir(srcPath);
-            for (const file of files) {
-                const srcFile = path.join(srcPath, file);
-                const destFile = path.join(destPath, file);
-                await this.copyDir(srcFile, destFile);
+        
+        try {
+            const stat = await fs.promises.stat(srcPath);
+            // 如果是目录，递归复制
+            if (stat.isDirectory()) {
+                await this.checkDirExist(destPath);
+                const files = await fs.promises.readdir(srcPath);
+                for (const file of files) {
+                    const srcFile = path.join(srcPath, file);
+                    const destFile = path.join(destPath, file);
+                    await this.copyDir(srcFile, destFile);
+                }
+            } else {
+                await fs.promises.copyFile(srcPath, destPath);
             }
-        } else {
-            await fs.promises.copyFile(srcPath, destPath);
+        } catch (error) {
+            console.error(`复制失败: ${srcPath} -> ${destPath}, 错误: ${err.message}`);
         }
+       
     }
 }
 
