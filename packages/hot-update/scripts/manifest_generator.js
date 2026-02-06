@@ -143,14 +143,14 @@ class manifest_generator {
         // 验证 build 目录是否存在
         const build_dir = path.join(this.m_project_dir, "build");
         if (!await this.checkDirExist(build_dir)) {
-            logger.logRed("build 目录不存在");
+            console.error("build 目录不存在");
             return;
         }
 
         // 验证 jsb-default 目录是否存在
         const jsb_default_dir = this.getLocalSourcePath();
         if (!await this.checkDirExist(jsb_default_dir)) {
-            logger.logRed("jsb-default 目录不存在");
+            console.error("jsb-default 目录不存在");
             return;
         }
 
@@ -229,8 +229,8 @@ async function cli() {
     let project_dir = process.argv[4];   
 
     /** 远程地址是否存在 */
-    if (!remoteUrl) {
-        logger.logRed("请输入远程地址");
+    if (!remoteUrl || remoteUrl.trim() === "") {
+        console.error("请输入远程地址");
         process.exit(1);
     }
 
@@ -239,8 +239,8 @@ async function cli() {
         project_dir = process.cwd();
     }
 
-    if (!version) {
-        logger.logRed("请输入版本号");
+    if (!version || version.trim() === "") {
+        console.error("请输入版本号");
         process.exit(1);
     }
     
@@ -248,11 +248,11 @@ async function cli() {
 
     try {
         await generator.generate();
-        logger.logNormal("manifest 生成成功");
-        logger.logNormal(`版本号: ${version}`);
-        logger.logNormal(`远程地址: ${remoteUrl}`);
+        console.log("manifest 生成成功");
+        console.log(`版本号: ${version}`);
+        console.log(`远程地址: ${remoteUrl}`);
     } catch (error) {
-        logger.logRed("生成 manifest 失败:", error.message);
+        console.error("生成 manifest 失败:", error.message);
         process.exit(1);
     }
     

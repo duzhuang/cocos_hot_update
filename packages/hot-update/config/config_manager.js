@@ -79,6 +79,26 @@ class config_manager {
         return JSON.parse(JSON.stringify(this.m_config));
     }
 
+    /**
+     * 验证配置是否完整
+     * @returns {result:boolean,missingFields:Array} 是否完整
+     */
+    validate() {
+        const requiredFields = ["hot_update.remoteUrl", "hot_update.version"];
+        const missingFields = [];
+        for (const field of requiredFields) {
+            if (this.get(field) === null || this.get(field) === undefined || this.get(field).trim() === "") {
+                missingFields.push(field);
+            }
+        }
+
+        if (missingFields.length > 0) {
+            return { result: false, missingFields };
+        }
+
+        return { result: true, missingFields: [] };
+    }
+
 
 }
 

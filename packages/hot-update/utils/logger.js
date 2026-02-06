@@ -18,29 +18,35 @@ class Logger {
 
     logNormal(...args) {
         const formatted = this.formatMessage(args.join(' '));
-        const logObj = this.checkIsEditor();
+        const logObj = this.getPrintObject();
         logObj.log(formatted);
     }    
 
     logYellow(...args) {
         const formatted = this.formatMessage(args.join(' '));
-        const logObj = this.checkIsEditor();
+        const logObj = this.getPrintObject();
         logObj.warn(formatted);
     }
 
     logRed(...args) {
         const formatted = this.formatMessage(args.join(' '));
-        const logObj = this.checkIsEditor();
+        const logObj = this.getPrintObject();
         logObj.error(formatted);
     }
 
     logGreen(...args) {
         const formatted = this.formatMessage(args.join(' '));
-        const logObj = this.checkIsEditor();
+        const logObj = this.getPrintObject();
         logObj.success ? logObj.success(formatted) : logObj.log(formatted);
     }
 
-    checkIsEditor() {
+    logBlue(...args) {
+        const formatted = this.formatMessage(args.join(' '));
+        const logObj = this.getPrintObject();
+        logObj.info ? logObj.info(formatted) : logObj.log(formatted);
+    }
+
+    getPrintObject() {
         if (typeof Editor !== "undefined") {
             return Editor;
         } else {
