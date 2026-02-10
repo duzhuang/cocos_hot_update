@@ -11,7 +11,7 @@ export default class UpdateDirectoryManager {
     /** 缓存文件夹路径 */
     private m_cacheDirectoryPath: string;
 
-    constructor(tempDirectoryPath: string = "temp/", cacheDirectoryPath: string = "hotUpdate/") {
+    constructor(tempDirectoryPath: string = "hotUpdateTemp/", cacheDirectoryPath: string = "hotUpdate/") {
         this.m_tempDirectoryPath = tempDirectoryPath;
         this.m_cacheDirectoryPath = cacheDirectoryPath;
     }

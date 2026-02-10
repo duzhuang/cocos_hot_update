@@ -32,7 +32,12 @@ export default class ManifestManager {
         }
     }
 
-    public saveLocalManifest(manifest: any) {
+    /** 
+     * 保存本地 manifest
+     * @param projectManifest 项目 manifest
+     * @param versionManifest 版本 manifest
+    */
+    public saveLocalManifest(projectManifest: IProjectManifest, versionManifest: IVersionManifest) {
         // 保存本地 manifest
     }
 
@@ -114,21 +119,28 @@ export default class ManifestManager {
      * 生成差异映射表
      * @param remoteProjectManifest 远程 project_manifest 文件内容
      * @param localProjectManifest 本地 project_manifest 文件内容（可选）
-     * @returns 差异映射表 { [key: string]: IAssetInfo }[] 
+     * @returns 差异映射表 IHotUpdateResource[]
      */
-    public generateDiffMap(remoteProjectManifest: IProjectManifest, localProjectManifest?: IProjectManifest): { [key: string]: IAssetInfo }[] {
+    public async generateDiffMap(remoteProjectManifest: IProjectManifest, localProjectManifest?: IProjectManifest): Promise<IHotUpdateResource[]> {
         if (!localProjectManifest) {
             localProjectManifest = this.m_lcoalProjectManifest;
         }
 
         if(!remoteProjectManifest || !remoteProjectManifest.assets) {
-            return [] as { [key: string]: IAssetInfo }[];
+            return [] as IHotUpdateResource[];
         }
-        
+
+        try {
+            const updateResources = await this.checkResourcesForUpdate(remoteProjectManifest.assets);
+            return updateResources;
+        } catch (error) {
+            console.error(`generateDiffMap 执行失败: ${error}`);
+            throw error;
+        }
     }
 
 
-    //==================================================== 以下为私有函数
+    //==================================================== 私有函数
 
     /** 加载本地 project_manifest 文件 */
     private loadLocalProjectManifest() {
@@ -179,31 +191,38 @@ export default class ManifestManager {
     }
 
 
+    /**
+     * 检查资源是否需要更新
+     * @param assets 资源列表
+     * @returns 需要更新的资源列表
+     */
+    private async checkResourcesForUpdate(assets: Record<string, IAssetInfo>): Promise<IHotUpdateResource[]> {
 
-    private async checkResourcesForUpdate(assets: { [key: string]: IAssetInfo }[]): Promise<IHotUpdateResource[]> {
-
-        if (!assets || assets.length === 0) {
+        if (!assets || Object.keys(assets).length === 0) {
             return [] as IHotUpdateResource[];
         }
-
-        // 并行检查
-        const checkTasks = new Promise<IHotUpdateResource[]>(async (resolve, reject) => {
-            const updateResources: IHotUpdateResource[] = [];
-
-            for (let idx = 0; idx < assets.length; idx++) {
-                const asset = assets[idx];
-                const relativePath = Object.keys(asset)[0];
-                const assetInfo = asset[relativePath];
+               
+        // 并行检查资源是否需要更新
+        const checkTasks = Object.entries(assets).map(async ([relativePath, assetInfo]) => {
+            try {
                 const checkResult = await this.needResourceUpdate(relativePath, assetInfo);
                 if (checkResult.needUpdate) {
-                    updateResources.push({ relativePath, assetInfo, reason: checkResult.reason });
+                    return { relativePath, assetInfo, reason: checkResult.reason } as IHotUpdateResource;
                 }
+            } catch (error) {
+                console.error(`检查资源失败: ${relativePath}, 错误: ${error}`);
+                return null;
             }
-
-            resolve(updateResources);
         });
 
-        return checkTasks;
+        // 等待所有任务完成 
+        const results = await Promise.allSettled(checkTasks);  
+        
+        const updateResources: IHotUpdateResource[] = results
+            .filter(r => r.status === "fulfilled" && r.value !== null)
+            .map(r => (r as PromiseFulfilledResult<IHotUpdateResource>).value);
+
+        return updateResources;
     }
 
 
