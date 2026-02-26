@@ -1,6 +1,6 @@
 import HttpTool from "./http/HttpTool";
 import { IAssetInfo } from "./interfaces/IAssetInfo";
-
+import { IHotUpdateCheckResult } from "./interfaces/IHotUpdateCheckResult";
 import { IHotUpdateResource } from "./interfaces/IHotUpdateResource";
 import { IProjectManifest } from "./interfaces/IProjectManifest";
 import { IVersionManifest } from "./interfaces/IVersionManifest";
@@ -9,15 +9,14 @@ import Tools from "./Tools";
 export default class ManifestManager {
 
     /** 本地 project_manifest 文件内容 */
-    private m_lcoalProjectManifest: IProjectManifest;
+    private m_lcoalProjectManifest: IProjectManifest = null;
     /** 本地 version_.manifest 文件内容 */
-    private m_localVersionManifest: IVersionManifest;
+    private m_localVersionManifest: IVersionManifest = null;
     /** 本地热更新的根路径 */
     private m_hotUpdateRootPath: string = "hotUpdate/";
 
     constructor() {
-        this.m_lcoalProjectManifest = {} as IProjectManifest;
-        this.m_localVersionManifest = {} as IVersionManifest;
+       
     }
 
     /** 加载本地 manifest */
@@ -33,12 +32,18 @@ export default class ManifestManager {
     }
 
     /** 
-     * 保存本地 manifest
+     * 保存 manifest 到本地
      * @param projectManifest 项目 manifest
      * @param versionManifest 版本 manifest
     */
     public saveLocalManifest(projectManifest: IProjectManifest, versionManifest: IVersionManifest) {
         // 保存本地 manifest
+        const projectManifestPath = this.m_hotUpdateRootPath + "project_manifest.json";
+        Tools.saveTextToFile(projectManifestPath, JSON.stringify(projectManifest));
+
+        // 保存本地 version_manifest
+        const versionManifestPath = this.m_hotUpdateRootPath + "version_.manifest.json";
+        Tools.saveTextToFile(versionManifestPath, JSON.stringify(versionManifest));
     }
 
     /** 
@@ -53,7 +58,7 @@ export default class ManifestManager {
 
         const response = await HttpTool.request<IProjectManifest>(remoteProjectManifetUrl);
         if (response.success) {
-            this.m_lcoalProjectManifest = response.data;
+            return response.data as IProjectManifest;
 
         } else {
             cc.error(`下载远程 project_manifest 文件失败: ${response.error}`);
@@ -72,8 +77,7 @@ export default class ManifestManager {
 
         const response = await HttpTool.request<IVersionManifest>(remoteVersionManifestUrl);
         if (response.success) {
-            this.m_localVersionManifest = response.data;
-
+            return response.data as IVersionManifest;
         } else {
             cc.error(`下载远程 version_.manifest 文件失败: ${response.error}`);
             return {} as IVersionManifest;
@@ -87,7 +91,8 @@ export default class ManifestManager {
      * @param version2 版本号2
      * @returns -1 版本号1小于版本号2, 0 版本号1等于版本号2, 1 版本号1大于版本号2
      */
-    public compareVersions(version1: string, version2: string): -1 | 0 | 1 {
+    public compareVersions(version1: string, version2: string): -1 | 0 | 1 {       
+
         const v1Parts = version1.split('.').map(Number);
         const v2Parts = version2.split('.').map(Number);
 
@@ -131,12 +136,34 @@ export default class ManifestManager {
         }
 
         try {
-            const updateResources = await this.checkResourcesForUpdate(remoteProjectManifest.assets);
-            return updateResources;
+            const checkResult = await this.checkResourcesForUpdate(remoteProjectManifest.assets);
+            // 记录失败信息，
+            if(checkResult.failures.length > 0) {
+                console.warn("部分资源检查失败:", checkResult.failures);
+                // 这里可以选择：抛出错误、返回失败列表、或者交给上层处理
+            }
+            return checkResult.updates;
         } catch (error) {
             console.error(`generateDiffMap 执行失败: ${error}`);
             throw error;
         }
+    }
+
+    /** 
+     * 获取需要下载的总字节数
+     * @param projectManifest 远程 project_manifest 文件内容
+     * @returns 总字节数
+     */
+    public getTotalBytesToDownload(projectManifest: IProjectManifest): number {
+        if (!projectManifest || !projectManifest.assets) {
+            return 0;
+        }
+
+        let totalBytes = 0;
+        for (const asset of Object.values(projectManifest.assets)) {
+            totalBytes += asset.size || 0;
+        }
+        return totalBytes;
     }
 
 
@@ -151,6 +178,7 @@ export default class ManifestManager {
 
         // 优先从本地缓存加载
         const cacheManifest = Tools.loadCacheResource(this.m_hotUpdateRootPath + "project_manifest.json");
+        console.log(`从本地缓存加载 project_manifest 文件内容: ${cacheManifest}`);
         if(cacheManifest) {
             this.m_lcoalProjectManifest = JSON.parse(cacheManifest);
             return this.m_lcoalProjectManifest;
@@ -158,6 +186,7 @@ export default class ManifestManager {
 
         // 从包内加载
         const packageManifest = Tools.loadPackageResource("project_manifest.json");
+        console.log(`从包内加载 project_manifest 文件内容: ${packageManifest}`);
         if(packageManifest) {
             this.m_lcoalProjectManifest = JSON.parse(packageManifest);
             return this.m_lcoalProjectManifest;
@@ -174,14 +203,14 @@ export default class ManifestManager {
         }
 
         // 优先从本地缓存加载
-        const cacheManifest = Tools.loadCacheResource(this.m_hotUpdateRootPath + "version_.manifest.json");
+        const cacheManifest = Tools.loadCacheResource(this.m_hotUpdateRootPath + "version_manifest.json");
         if(cacheManifest) {
             this.m_localVersionManifest = JSON.parse(cacheManifest);
             return this.m_localVersionManifest;
         }
 
         // 从包内加载
-        const packageManifest = Tools.loadPackageResource("version_.manifest.json");
+        const packageManifest = Tools.loadPackageResource("version_manifest.json");
         if(packageManifest) {
             this.m_localVersionManifest = JSON.parse(packageManifest);
             return this.m_localVersionManifest;
@@ -196,10 +225,10 @@ export default class ManifestManager {
      * @param assets 资源列表
      * @returns 需要更新的资源列表
      */
-    private async checkResourcesForUpdate(assets: Record<string, IAssetInfo>): Promise<IHotUpdateResource[]> {
+    private async checkResourcesForUpdate(assets: Record<string, IAssetInfo>): Promise<IHotUpdateCheckResult> {
 
         if (!assets || Object.keys(assets).length === 0) {
-            return [] as IHotUpdateResource[];
+            return { updates: [], failures: [] };
         }
                
         // 并行检查资源是否需要更新
@@ -207,22 +236,36 @@ export default class ManifestManager {
             try {
                 const checkResult = await this.needResourceUpdate(relativePath, assetInfo);
                 if (checkResult.needUpdate) {
-                    return { relativePath, assetInfo, reason: checkResult.reason } as IHotUpdateResource;
+                    return { type: 'update', data: { relativePath, assetInfo, reason: checkResult.reason } };
                 }
-            } catch (error) {
-                console.error(`检查资源失败: ${relativePath}, 错误: ${error}`);
-                return null;
+                return { type: 'skip', data: { relativePath, assetInfo } };
+            } catch (error) {                
+                return { type: 'failure', data: { relativePath, error } };
             }
         });
 
         // 等待所有任务完成 
         const results = await Promise.allSettled(checkTasks);  
         
-        const updateResources: IHotUpdateResource[] = results
-            .filter(r => r.status === "fulfilled" && r.value !== null)
-            .map(r => (r as PromiseFulfilledResult<IHotUpdateResource>).value);
+        const updates:IHotUpdateResource[] = [];
+        const failures: { relativePath: string; error: any }[] = [];
 
-        return updateResources;
+        for (const result of results) {
+            if(result.status === "fulfilled"){
+                if(result.value.type === "update"){
+                    updates.push(result.value.data as IHotUpdateResource);
+                }else if(result.value.type === "failure"){
+                    failures.push(result.value.data as { relativePath: string; error: any });
+                }
+            }else{
+                failures.push({
+                    relativePath:"unknown",
+                    error:result.reason
+                });
+            }
+        }
+
+        return { updates, failures };
     }
 
 

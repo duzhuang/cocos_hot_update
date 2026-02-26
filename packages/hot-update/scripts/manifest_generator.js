@@ -4,6 +4,7 @@
  * 功能：
  * 1、生成 version_manifest.json
  * 2、生成 project_manifest.json
+ * 3、复制构建完成的资源到指定<remote-assets>目录
  */
 
 const fs = require('fs');
@@ -164,13 +165,15 @@ class manifest_generator {
 
         // 拷贝 assets
         const assets_dir = path.join(source_dir, "assets");
-        const dest_assets_dir = path.join(this.m_local_target_dir, "assets");
+        const dest_assets_dir = path.join(this.m_local_target_dir, "assets");        
+        await this.removeDir(dest_assets_dir);
         await this.checkDirExist(dest_assets_dir);
         await this.copyDir(assets_dir, dest_assets_dir);
 
         // 拷贝 src
         const src_dir = path.join(source_dir, "src");
         const dest_src_dir = path.join(this.m_local_target_dir, "src");
+        await this.removeDir(dest_src_dir);
         await this.checkDirExist(dest_src_dir);
         await this.copyDir(src_dir, dest_src_dir);
     }
@@ -197,6 +200,22 @@ class manifest_generator {
             return false;
         }
     }
+
+    /**
+     * 删除目录
+     * @param {string} dirPath 目录路径
+     * @returns {Promise<void>}
+     */
+    async removeDir(dirPath) {
+        try {
+            await fs.promises.rm(dirPath, { recursive: true });
+            return true;
+        } catch (err) {
+            console.error(`删除目录 ${dirPath} 失败: ${err.message}`);
+            return false;
+        }
+    }
+
 
     /**
      * 复制文件

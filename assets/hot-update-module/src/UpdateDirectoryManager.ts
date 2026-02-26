@@ -40,6 +40,7 @@ export default class UpdateDirectoryManager {
         }        
         // 复制临时文件夹到缓存文件夹
         Tools.copyDirectory(this.m_tempDirectoryPath, this.m_cacheDirectoryPath, true);
+        this.clearTempDirectory();
     }
 
 

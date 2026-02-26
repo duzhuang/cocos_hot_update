@@ -17,7 +17,10 @@ export default class Tools {
         }
 
         // jsb.fileUtils.getDefaultResourceRootPath() 应用程序安装包内的资源目录
-        const path = jsb.fileUtils.getDefaultResourceRootPath() + relativePath;
+        const path = jsb.fileUtils.getDefaultResourceRootPath() + "assets/" + relativePath;
+
+        console.log("读取包内资源: 加载的相对路径：",relativePath);
+        console.log("读取包内资源: 加载的绝对路径：",path);
 
         if (jsb.fileUtils.isFileExist(path)) {
             return jsb.fileUtils.getStringFromFile(path);
@@ -138,5 +141,32 @@ export default class Tools {
             console.error("复制目录失败", e);
             return false;
         }
+    }
+
+
+    /** 
+     * 保存文本到文件
+     * @param filePath 文件路径
+     * @param text 文本内容
+     */
+    public static saveTextToFile(filePath: string, text: string): boolean {
+        // 检查路径
+        if (!filePath || filePath.trim() === "") {
+            return false;
+        }
+
+        // 判断是否是原生环境
+        if (!cc.sys.isNative) {
+            return false;
+        }
+
+        // 检查目录是否存在
+        const dirPath = filePath.substring(0, filePath.lastIndexOf("/"));
+        if (!jsb.fileUtils.isDirectoryExist(dirPath)) {
+            jsb.fileUtils.createDirectory(dirPath);
+        }
+
+        // 写入文件
+        return jsb.fileUtils.writeStringToFile(text, filePath);
     }
 }

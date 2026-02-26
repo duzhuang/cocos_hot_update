@@ -1,11 +1,11 @@
 {
   "title": "cocos_hot_update",
   "packageName": "org.cocos2d.demo",
-  "startScene": "49f723c8-41e6-4259-b906-15c4fd85f254",
+  "startScene": "ca96b22f-dafc-4042-8dd6-b5eb2278edb0",
   "excludeScenes": [],
   "orientation": {
-    "landscapeRight": true,
-    "landscapeLeft": true,
+    "landscapeRight": false,
+    "landscapeLeft": false,
     "portrait": false,
     "upsideDown": false
   },
