@@ -20,27 +20,33 @@ export default class UpdateDirectoryManager {
      * 创建临时文件夹和缓存文件夹
      */
     public prepareUpdateDirectories() {
-        // 检查临时文件夹和缓存文件夹是否存在
-        if (!jsb.fileUtils.isDirectoryExist(this.m_tempDirectoryPath)) {
-            jsb.fileUtils.createDirectory(this.m_tempDirectoryPath);
-        }
-        if (!jsb.fileUtils.isDirectoryExist(this.m_cacheDirectoryPath)) {
-            jsb.fileUtils.createDirectory(this.m_cacheDirectoryPath);
-        }      
+        // 检查临时文件夹和缓存文件夹是否存在           
+        Tools.creatDirectoryExistInCache(this.m_tempDirectoryPath);
+        Tools.creatDirectoryExistInCache(this.m_cacheDirectoryPath);
     }
 
 
     /** 
      * 复制临时文件夹到缓存文件夹
+     * @returns 是否复制成功
      */
-    public copyTempToCache() {        
+    public async copyTempToCache(): Promise<boolean> {
+
         // 检查临时文件夹是否存在
-        if (!jsb.fileUtils.isDirectoryExist(this.m_tempDirectoryPath)) {
-            return;
-        }        
+        if (!Tools.isDirectoryExistInCache(this.m_tempDirectoryPath)) {
+            return false;
+        }
+        const fullTempPath = Tools.getFullPathInCache(this.m_tempDirectoryPath);
+        const fullCachePath = Tools.getFullPathInCache(this.m_cacheDirectoryPath);
+
         // 复制临时文件夹到缓存文件夹
-        Tools.copyDirectory(this.m_tempDirectoryPath, this.m_cacheDirectoryPath, true);
-        this.clearTempDirectory();
+        const success = await Tools.copyDirectoryAsync(fullTempPath, fullCachePath, true);
+        if (success) {
+            this.clearTempDirectory();
+            return true;
+        } else {
+            return false;
+        }
     }
 
 
@@ -50,12 +56,12 @@ export default class UpdateDirectoryManager {
     public clearTempDirectory() {
         // 清除临时文件夹
         // 检查临时文件夹是否存在
-        if (!jsb.fileUtils.isDirectoryExist(this.m_tempDirectoryPath)) {
+        // 添加写入路径
+        if(!Tools.isDirectoryExistInCache(this.m_tempDirectoryPath)) {
             return;
         }
-        jsb.fileUtils.removeDirectory(this.m_tempDirectoryPath);
+        // 删除临时文件夹
+        Tools.removeDirectoryInCache(this.m_tempDirectoryPath);
     }
-
-
 
 }

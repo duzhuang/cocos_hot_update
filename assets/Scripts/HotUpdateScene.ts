@@ -28,6 +28,9 @@ export default class HotUpdateScene extends cc.Component {
                 const result = await hotUpdateFlow.hotUpdateFlow();
                 if (!result.success) {
                     // 热更新失败，提示用户重试                    
+                }else{
+                    // 切换到游戏场景
+                    cc.director.loadScene("main");
                 }
             } else {
                 // 切换到游戏场景
@@ -39,9 +42,9 @@ export default class HotUpdateScene extends cc.Component {
 
 
     /** 热更新进度回调 */
-    private onUpdateProgression(data: { totalTasks: number, completedTasks: number, totalBytes: number, finishedBytes: number }): void {
-        const { totalTasks, completedTasks, totalBytes, finishedBytes } = data;
-        console.log(`热更新进度任务数量进度: ${completedTasks}/${totalTasks}`);
+    private onUpdateProgression(data: { totalTasks: number, finishedTasks: number, totalBytes: number, finishedBytes: number }): void {
+        const { totalTasks, finishedTasks, totalBytes, finishedBytes } = data;  
+        console.log(`热更新进度任务数量进度: ${finishedTasks}/${totalTasks}`);
         console.log(`热更新进度大小进度: ${finishedBytes}/${totalBytes} bytes`);
     }
 }

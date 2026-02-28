@@ -1,7 +1,7 @@
 {
     "hot_update": {
         "remoteUrl": "http://192.168.18.193:9090",
-        "version": "1.0.0.1"
+        "version": "1.0.0.4"
     },
     "deploy": {
         "targetPath": "/Users/zhangdaxing/Desktop/HotUpdate/cocosJSB/res"

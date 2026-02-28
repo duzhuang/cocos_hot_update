@@ -59,16 +59,14 @@ export default class Downloader {
             }
         });
 
-        this.m_downloader.setOnTaskProgress((task, bytesReceived, totalBytes) => {
-            const percent = (bytesReceived / totalBytes) * 100;
-            console.log(`下载任务 ${task.identifier} 进度: ${percent.toFixed(2)}%`);
+        this.m_downloader.setOnTaskProgress((task, bytesReceived, totalBytes) => {                        
             // 更新总字节数和已完成字节数            
             this.m_finishedBytes += bytesReceived;
             cc.game.emit("UPDATE_PROGRESSION", {
                 totalTasks: this.m_totalTasks,
                 finishedTasks: this.m_finishedTasks,
                 totalBytes: this.m_totalBytes,
-                finishedBytes: this.m_finishedBytes,                   
+                finishedBytes: this.m_finishedBytes,                 
             });
         });
     }
@@ -76,13 +74,14 @@ export default class Downloader {
     /** 
      * 创建下载任务
      * @param resources 需要下载的资源列表
+     * @param baseUrl 资源的基础URL
      * @returns 下载任务列表
      */
-    createDownloadTasks(resources: IHotUpdateResource[]): IDownloadTask[] {
+    createDownloadTasks(resources: IHotUpdateResource[], baseUrl: string): IDownloadTask[] {        
         return resources.map(res => {
             const storagePath = this.getTempFilePath(res.relativePath);
             return {
-                url: res.relativePath,
+                url: baseUrl + res.relativePath,
                 relativePath: res.relativePath,
                 storagePath
             };
@@ -110,7 +109,10 @@ export default class Downloader {
 
         for (const result of results) {
             if (result.status === "fulfilled") {
-                downloadResults.push(result.value);
+                downloadResults.push({
+                    success: true,
+                    relativePath: result.value.relativePath,
+                });
             } else if (result.status === "rejected") {
                 downloadResults.push({
                     relativePath: result.reason.relativePath,
@@ -190,6 +192,9 @@ export default class Downloader {
      * @returns 下载结果Promise
      */
     private createDownloadPromise(task: IDownloadTask): Promise<IDownloadResult> {
+
+        console.log(`开始下载任务名字: ${task.relativePath}`);
+        console.log(`开始下载任务url: ${task.url}`);
 
         return new Promise((resolve, reject) => {
             const donwloadTask = this.m_downloader.createDownloadFileTask(

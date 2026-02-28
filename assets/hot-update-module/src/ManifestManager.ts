@@ -39,11 +39,11 @@ export default class ManifestManager {
     public saveLocalManifest(projectManifest: IProjectManifest, versionManifest: IVersionManifest) {
         // 保存本地 manifest
         const projectManifestPath = this.m_hotUpdateRootPath + "project_manifest.json";
-        Tools.saveTextToFile(projectManifestPath, JSON.stringify(projectManifest));
+        Tools.writeStringToFileInCache(JSON.stringify(projectManifest), projectManifestPath);
 
         // 保存本地 version_manifest
-        const versionManifestPath = this.m_hotUpdateRootPath + "version_.manifest.json";
-        Tools.saveTextToFile(versionManifestPath, JSON.stringify(versionManifest));
+        const versionManifestPath = this.m_hotUpdateRootPath + "version_manifest.json";
+        Tools.writeStringToFileInCache(JSON.stringify(versionManifest), versionManifestPath);
     }
 
     /** 
@@ -151,17 +151,16 @@ export default class ManifestManager {
 
     /** 
      * 获取需要下载的总字节数
-     * @param projectManifest 远程 project_manifest 文件内容
+     * @param diffMap 需要下载的资源映射表
      * @returns 总字节数
      */
-    public getTotalBytesToDownload(projectManifest: IProjectManifest): number {
-        if (!projectManifest || !projectManifest.assets) {
+    public getTotalBytesToDownload(diffMap: IHotUpdateResource[]): number {
+        if (!diffMap || diffMap.length === 0) {
             return 0;
         }
-
         let totalBytes = 0;
-        for (const asset of Object.values(projectManifest.assets)) {
-            totalBytes += asset.size || 0;
+        for (const asset of diffMap) {
+            totalBytes += asset.assetInfo.size || 0;
         }
         return totalBytes;
     }
@@ -177,21 +176,20 @@ export default class ManifestManager {
         }
 
         // 优先从本地缓存加载
-        const cacheManifest = Tools.loadCacheResource(this.m_hotUpdateRootPath + "project_manifest.json");
-        console.log(`从本地缓存加载 project_manifest 文件内容: ${cacheManifest}`);
+        const cacheManifest = Tools.loadCacheResource(this.m_hotUpdateRootPath + "project_manifest.json");        
         if(cacheManifest) {
+            console.log("从本地缓存加载 project_manifest 文件内容成功");
             this.m_lcoalProjectManifest = JSON.parse(cacheManifest);
             return this.m_lcoalProjectManifest;
         }
 
         // 从包内加载
-        const packageManifest = Tools.loadPackageResource("project_manifest.json");
-        console.log(`从包内加载 project_manifest 文件内容: ${packageManifest}`);
+        const packageManifest = Tools.loadPackageResource("project_manifest.json");        
         if(packageManifest) {
+            console.log("从包内加载 project_manifest 文件内容成功");
             this.m_lcoalProjectManifest = JSON.parse(packageManifest);
             return this.m_lcoalProjectManifest;
         }
-
         return null;
     }
 
@@ -205,6 +203,7 @@ export default class ManifestManager {
         // 优先从本地缓存加载
         const cacheManifest = Tools.loadCacheResource(this.m_hotUpdateRootPath + "version_manifest.json");
         if(cacheManifest) {
+            console.log("从本地缓存加载 version_manifest 文件内容成功");
             this.m_localVersionManifest = JSON.parse(cacheManifest);
             return this.m_localVersionManifest;
         }
@@ -212,6 +211,7 @@ export default class ManifestManager {
         // 从包内加载
         const packageManifest = Tools.loadPackageResource("version_manifest.json");
         if(packageManifest) {
+            console.log("从包内加载 version_manifest 文件内容成功");
             this.m_localVersionManifest = JSON.parse(packageManifest);
             return this.m_localVersionManifest;
         }
@@ -226,6 +226,8 @@ export default class ManifestManager {
      * @returns 需要更新的资源列表
      */
     private async checkResourcesForUpdate(assets: Record<string, IAssetInfo>): Promise<IHotUpdateCheckResult> {
+
+        console.log("检查资源是否需要更新",JSON.stringify(assets));
 
         if (!assets || Object.keys(assets).length === 0) {
             return { updates: [], failures: [] };
